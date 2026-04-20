@@ -13,7 +13,6 @@
   Conformidade : DORA (UE) 2022/2554 · Art. 125.º CPP · ISO/IEC 27037:2012
                : Lei n.º 109/2009 (Cibercrime) · Diretiva DAC7 (UE) 2021/514
                : Art. 119.º RGIT · RGPD Art. 32.º · eIDAS
-  Password     : Beatriz2026###@@@
   Hash SHA-256 : 2cc9039cff521fa20ce9748ea10ebb59b83de0e922899071a81f1494a0728b54
   Master Hash  : a538cdf55996f9509249c51ecdf5ee15f46b403b85411a4d0f18590f54f3a417
   ============================================================================
@@ -26,10 +25,10 @@
 -->
 <title>UNIFED-PROBATUM — Sistema de Peritagem Forense Digital</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-      integrity="sha512-iecdLmaskl7CVJkEZSMUkrQ6usKGgiYjwlrfcqKKcfx00MLp3YQe98bNvBCzEAKJRjL4NnHPVcKMuMrIZs7wqw=="
+      integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
       crossorigin="anonymous" referrerpolicy="no-referrer">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"
-        integrity="sha512-d5kLQpDQdMp5+mzgP8f5RpvPV+Dak4lFa8UVf1q5BVj2I04PPlBrF/+AxAXTHjg/dHp6/3z6DxMEQu0JqYeZA=="
+        integrity="sha512-ElRFoEQdI5Ht6kZvyzXhYG9NqjtkmlkfYk0wr6wHxU9JEHakS7UJZNeml5ALk+8IKlU6jDgMabC3vkumRokgJA=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <!-- ============================================================================
      FIX-EXT-02: jsPDF UMD — Obrigatório para exportação PDF (Tríade + Legal Tactics)
@@ -740,35 +739,6 @@ footer.ds-footer {
    O timing-attack bloqueava o pipeline forense e impedia renderização de dados.
    Reativar APENAS em produção, após validação completa do motor de análise. */
 window._UNIFED_HALT = function() {};
-  }
-
-  // Timing attack: DevTools atrasa console.log em >5ms
-  var _devCheckInterval = setInterval(function() {
-    if (!window._UNIFED_ACCESS_GRANTED) return; // Só ativo após login
-    var t0 = performance.now();
-    // eslint-disable-next-line no-console
-    console.log('\u200B'); // Zero-width space — invisível mas processado
-    var t1 = performance.now();
-    if (t1 - t0 > 150) {
-      clearInterval(_devCheckInterval);
-      _zeroState();
-    }
-  }, 2000);
-
-  // Deteção via dimensões da janela (painel lateral abre com >160px de diferença)
-  var _winCheck = setInterval(function() {
-    if (!window._UNIFED_ACCESS_GRANTED) return;
-    var threshold = 160;
-    var widthDiff = window.outerWidth - window.innerWidth;
-    var heightDiff = window.outerHeight - window.innerHeight;
-    if (widthDiff > threshold || heightDiff > threshold) {
-      clearInterval(_winCheck);
-      _zeroState();
-    }
-  }, 3000);
-
-  window._UNIFED_HALT = _zeroState;
-})();
 
 /* ============================================================================
    MÓDULO 1 — ESTADO GLOBAL (Zero-State por defeito)
@@ -2088,6 +2058,19 @@ function _bindDashboardEvents() {
      Motor forense principal → Nexus → Enriquecimento → Injeção do Painel
      Bateria de Contraditório (art. 327.º CPP) carregada por último
      ============================================================================ -->
+<!-- ============================================================================
+     FIX-DOM-01: Ghost DOM Stubs — Elementos requeridos por script.js antes da
+     injeção de panel.html por script_injection.js. Visibilidade: display:none.
+     IDs: #analyzeBtn · #demoModeBtn · #forensicWipeBtn · #startSessionBtn
+          #logsModal · #clearConsoleBtn
+     ============================================================================ -->
+<button id="analyzeBtn"       style="display:none;" aria-hidden="true"></button>
+<button id="demoModeBtn"      style="display:none;" aria-hidden="true"></button>
+<button id="forensicWipeBtn"  style="display:none;" aria-hidden="true"></button>
+<button id="startSessionBtn"  style="display:none;" aria-hidden="true"></button>
+<button id="clearConsoleBtn"  style="display:none;" aria-hidden="true"></button>
+<div    id="logsModal"        style="display:none;" aria-hidden="true"></div>
+
 <script src="script.js" defer></script>
 <script src="nexus.js" defer></script>
 <script src="enrichment.js" defer></script>
