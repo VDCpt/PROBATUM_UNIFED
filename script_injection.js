@@ -1089,60 +1089,6 @@
         // =========================================================================
         // FUNÇÃO CORRIGIDA: _executePendingAnalysis – única responsável por ativar a análise
         // =========================================================================
-async function _executePendingAnalysis() {
-    // 1. Verificação de estado
-    if (!window._unifedAnalysisPending) {
-        console.log('[UNIFED] Nenhuma análise pendente ou já executada.');
-        return;
-    }
-    console.log('[UNIFED] Executando análise forense pendente...');
-    
-    const sys = window.UNIFEDSystem;
-    if (!sys || !sys.analysis || !sys.analysis.totals) {
-        console.warn('[UNIFED] Dados insuficientes para executar a análise.');
-        return;
-    }
-
-    // 2. Executar o motor de cruzamento forense (performForensicCrossings)
-    if (typeof window.performForensicCrossings === 'function') {
-        await window.performForensicCrossings();
-    } else {
-        // Fallback: calcular crossings localmente
-        const t = sys.analysis.totals;
-        const discrepanciaCritica = t.despesas - t.faturaPlataforma;
-        const discrepanciaSaftVsDac7 = t.saftBruto - t.dac7TotalPeriodo;
-        // ... resto do cálculo ...
-        sys.analysis.crossings = { /* ... */ };
-    }
-
-    // 3. Atualizar flags de estado
-    window._unifedRawDataOnly = false;
-    window._unifedAnalysisPending = false;
-
-    // 4. Revelar módulos forenses e sincronizar UI
-    if (typeof window.updateForensicModulesVisibility === 'function') {
-        window.updateForensicModulesVisibility(true);
-    }
-    if (typeof window.UNIFED_INTERNAL?.syncMetrics === 'function') {
-        window.UNIFED_INTERNAL.syncMetrics();
-    }
-    if (typeof window.UNIFED_INTERNAL?.renderMatrix === 'function') {
-        window.UNIFED_INTERNAL.renderMatrix();
-    }
-    if (typeof window.UNIFED_INTERNAL?.updateAuxiliaryUI === 'function') {
-        window.UNIFED_INTERNAL.updateAuxiliaryUI();
-    }
-
-    // 5. Disparar eventos APÓS a análise (e NÃO antes)
-    window.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', {
-        detail: { timestamp: Date.now(), source: 'executePendingAnalysis', sessionId: sys.sessionId || 'N/A', masterHash: sys.masterHash || 'N/A' }
-    }));
-    window.dispatchEvent(new CustomEvent('UNIFED_EXECUTE_PERITIA', {
-        detail: { timestamp: new Date().toISOString(), masterHash: sys.masterHash || 'N/A' }
-    }));
-
-    console.log('[UNIFED] Análise forense concluída e UI atualizada.');
-}
 
 console.log('[UNIFED] Análise forense concluída e UI atualizada.');
 
@@ -1184,33 +1130,34 @@ console.log('[UNIFED] Análise forense concluída e UI atualizada.');
             // =================================================================
             window._unifedRawDataOnly = false;
             window._unifedAnalysisPending = false;
+		// =================================================================
+		// 3. Revelar módulos forenses e sincronizar UI (sem desenhar gráficos)
+		// =================================================================
+		if (typeof window.updateForensicModulesVisibility === 'function') {
+   		 window.updateForensicModulesVisibility(true);
+		}
 
-            // =================================================================
-            // 3. Revelar módulos forenses e renderizar gráficos
-            // =================================================================
-            if (typeof window.updateForensicModulesVisibility === 'function') {
-                window.updateForensicModulesVisibility(true);
-            }
+		if (typeof window.UNIFED_INTERNAL?.syncMetrics === 'function') {
+    		window.UNIFED_INTERNAL.syncMetrics();
+		}
+		if (typeof window.UNIFED_INTERNAL?.renderMatrix === 'function') {
+  		  window.UNIFED_INTERNAL.renderMatrix();
+		}
+		if (typeof window.UNIFED_INTERNAL?.updateAuxiliaryUI === 'function') {
+  		  window.UNIFED_INTERNAL.updateAuxiliaryUI();
+		}
 
-            if (typeof window.UNIFED_INTERNAL?.syncMetrics === 'function') {
-                window.UNIFED_INTERNAL.syncMetrics();
-            }
-            if (typeof window.UNIFED_INTERNAL?.renderMatrix === 'function') {
-                window.UNIFED_INTERNAL.renderMatrix();
-            }
-            if (typeof window.UNIFED_INTERNAL?.updateAuxiliaryUI === 'function') {
-                window.UNIFED_INTERNAL.updateAuxiliaryUI();
-            }
+// =================================================================
+// 4. Disparar eventos – os gráficos serão desenhados pelos listeners em enrichment.js
+// =================================================================
+window.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', {
+    detail: { source: 'executePendingAnalysis', timestamp: Date.now() }
+}));
+window.dispatchEvent(new CustomEvent('UNIFED_EXECUTE_PERITIA', {
+    detail: { timestamp: new Date().toISOString() }
+}));
 
-            if (typeof window.renderForensicCharts === 'function') {
-                window.renderForensicCharts();
-            } else {
-                // Fallback individual
-                if (typeof window.renderChart === 'function') window.renderChart();
-                if (typeof window.renderDiscrepancyChart === 'function') window.renderDiscrepancyChart();
-                if (typeof window.renderATFChart === 'function') window.renderATFChart();
-            }
-
+console.log('[UNIFED] Análise forense concluída – eventos disparados. Gráficos serão renderizados pelos listeners.');
             // =================================================================
             // 4. Disparar eventos globais
             // =================================================================
@@ -2452,8 +2399,6 @@ console.log('[UNIFED] Análise forense concluída e UI atualizada.');
                     window.renderForensicCharts();
                 }
                 // 7. Renderizar gráficos principais (mainChart, discrepancyChart)
-                if (typeof window.renderChart === 'function') window.renderChart();
-                if (typeof window.renderDiscrepancyChart === 'function') window.renderDiscrepancyChart();
 
                 // 8. Disparar eventos globais
                 window.dispatchEvent(new CustomEvent('UNIFED_EXECUTE_PERITIA', {
