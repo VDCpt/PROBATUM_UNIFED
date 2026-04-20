@@ -1086,45 +1086,6 @@
             console.log('[UNIFED] Contadores de evidências atualizados e secção revelada.');
         }
 
-        // =========================================================================
-        // FUNÇÃO CORRIGIDA: _executePendingAnalysis – única responsável por ativar a análise
-        // =========================================================================
-
-console.log('[UNIFED] Análise forense concluída e UI atualizada.');
-
-            // =================================================================
-            // 1. Executar o motor de cruzamento forense (performForensicCrossings)
-            // =================================================================
-            if (typeof window.performForensicCrossings === 'function') {
-                await window.performForensicCrossings(); // ou passar os totais
-            } else {
-                // Fallback: calcular crossings localmente
-                const t = sys.analysis.totals;
-                const discrepanciaSaftVsDac7 = t.saftBruto - t.dac7TotalPeriodo;
-                const percentagemSaftVsDac7 = t.saftBruto > 0 ? (discrepanciaSaftVsDac7 / t.saftBruto) * 100 : 0;
-                const discrepanciaCritica = t.despesas - t.faturaPlataforma;
-                const percentagemOmissao = t.despesas > 0 ? (discrepanciaCritica / t.despesas) * 100 : 0;
-                const ivaFalta = discrepanciaCritica * 0.23;
-                const ivaFalta6 = discrepanciaCritica * 0.06;
-                const ircEstimado = discrepanciaCritica * 0.21;
-                const asfixiaFinanceira = t.saftBruto * 0.06;
-
-                if (!sys.analysis.crossings) sys.analysis.crossings = {};
-                Object.assign(sys.analysis.crossings, {
-                    discrepanciaSaftVsDac7, percentagemSaftVsDac7,
-                    discrepanciaCritica, percentagemOmissao,
-                    ivaFalta, ivaFalta6, ircEstimado, asfixiaFinanceira,
-                    btor: t.despesas, btf: t.faturaPlataforma,
-                    c1_delta: discrepanciaSaftVsDac7, c1_pct: percentagemSaftVsDac7,
-                    c2_delta: discrepanciaCritica, c2_pct: percentagemOmissao
-                });
-
-                // Adicionar totais de análise
-                t.iva6Omitido = ivaFalta6;
-                t.iva23Omitido = ivaFalta;
-                t.asfixiaFinanceira = asfixiaFinanceira;
-            }
-
             // =================================================================
             // 2. Atualizar flags de estado
             // =================================================================
@@ -1303,6 +1264,79 @@ console.log('[UNIFED] Análise forense concluída – eventos disparados. Gráfi
             })();
 
             return true;
+        }
+
+		        async function _executePendingAnalysis() {
+            // 1. Verificação de estado
+            if (!window._unifedAnalysisPending) {
+                console.log('[UNIFED] Nenhuma análise pendente ou já executada.');
+                return;
+            }
+            console.log('[UNIFED] Executando análise forense pendente...');
+            
+            const sys = window.UNIFEDSystem;
+            if (!sys || !sys.analysis || !sys.analysis.totals) {
+                console.warn('[UNIFED] Dados insuficientes para executar a análise.');
+                return;
+            }
+
+            // 2. Executar o motor de cruzamento forense (performForensicCrossings)
+            if (typeof window.performForensicCrossings === 'function') {
+                await window.performForensicCrossings();
+            } else {
+                // Fallback: calcular crossings localmente
+                const t = sys.analysis.totals;
+                const discrepanciaCritica = t.despesas - t.faturaPlataforma;
+                const discrepanciaSaftVsDac7 = t.saftBruto - t.dac7TotalPeriodo;
+                const percentagemOmissao = t.despesas > 0 ? (discrepanciaCritica / t.despesas) * 100 : 0;
+                const percentagemSaftVsDac7 = t.saftBruto > 0 ? (discrepanciaSaftVsDac7 / t.saftBruto) * 100 : 0;
+                const ivaFalta = discrepanciaCritica * 0.23;
+                const ivaFalta6 = discrepanciaCritica * 0.06;
+                const ircEstimado = discrepanciaCritica * 0.21;
+                const asfixiaFinanceira = t.saftBruto * 0.06;
+
+                if (!sys.analysis.crossings) sys.analysis.crossings = {};
+                Object.assign(sys.analysis.crossings, {
+                    discrepanciaSaftVsDac7, percentagemSaftVsDac7,
+                    discrepanciaCritica, percentagemOmissao,
+                    ivaFalta, ivaFalta6, ircEstimado, asfixiaFinanceira,
+                    btor: t.despesas, btf: t.faturaPlataforma,
+                    c1_delta: discrepanciaSaftVsDac7, c1_pct: percentagemSaftVsDac7,
+                    c2_delta: discrepanciaCritica, c2_pct: percentagemOmissao
+                });
+
+                t.iva6Omitido = ivaFalta6;
+                t.iva23Omitido = ivaFalta;
+                t.asfixiaFinanceira = asfixiaFinanceira;
+            }
+
+            // 3. Atualizar flags de estado
+            window._unifedRawDataOnly = false;
+            window._unifedAnalysisPending = false;
+
+            // 4. Revelar módulos forenses e sincronizar UI (sem desenhar gráficos)
+            if (typeof window.updateForensicModulesVisibility === 'function') {
+                window.updateForensicModulesVisibility(true);
+            }
+            if (typeof window.UNIFED_INTERNAL?.syncMetrics === 'function') {
+                window.UNIFED_INTERNAL.syncMetrics();
+            }
+            if (typeof window.UNIFED_INTERNAL?.renderMatrix === 'function') {
+                window.UNIFED_INTERNAL.renderMatrix();
+            }
+            if (typeof window.UNIFED_INTERNAL?.updateAuxiliaryUI === 'function') {
+                window.UNIFED_INTERNAL.updateAuxiliaryUI();
+            }
+
+            // 5. Disparar eventos – os gráficos serão desenhados pelos listeners em enrichment.js
+            window.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', {
+                detail: { source: 'executePendingAnalysis', timestamp: Date.now() }
+            }));
+            window.dispatchEvent(new CustomEvent('UNIFED_EXECUTE_PERITIA', {
+                detail: { timestamp: new Date().toISOString() }
+            }));
+
+            console.log('[UNIFED] Análise forense concluída – eventos disparados. Gráficos serão renderizados pelos listeners.');
         }
 
         window.UNIFED_INTERNAL.forcePlatformReadOnly = _forcePlatformReadOnly;
@@ -1529,8 +1563,6 @@ console.log('[UNIFED] Análise forense concluída – eventos disparados. Gráfi
             window.UNIFEDSystem.loadAnonymizedRealCase = async function() {
                 await initializeFullWithEvidence();
                 // As três linhas seguintes foram REMOVIDAS para evitar gráficos/módulos antes da perícia:
-                // if (typeof window.renderChart === 'function') window.renderChart();
-                // if (typeof window.renderDiscrepancyChart === 'function') window.renderDiscrepancyChart();
                 // if (typeof window.forceRevealSmokingGun === 'function') window.forceRevealSmokingGun();
                 if (typeof window.correctRomanIndices === 'function') window.correctRomanIndices();
                 console.info('[UNIFED-FIX] Data Hydration concluída (gráficos e módulos aguardam perícia).');
@@ -1872,68 +1904,7 @@ console.log('[UNIFED] Análise forense concluída – eventos disparados. Gráfi
         // SUBSTITUIR a definição de window.uncloakForensicData (PATCH 1)
         // =========================================================================
 
-  async function _executePendingAnalysis() {
-    // 1. Verificação de estado
-    if (!window._unifedAnalysisPending) {
-        console.log('[UNIFED] Nenhuma análise pendente ou já executada.');
-        return;
-    }
-    console.log('[UNIFED] Executando análise forense pendente...');
-    
-    const sys = window.UNIFEDSystem;
-    if (!sys || !sys.analysis || !sys.analysis.totals) {
-        console.warn('[UNIFED] Dados insuficientes para executar a análise.');
-        return;
-    }
-
-    // 2. Executar o motor de cruzamento forense (performForensicCrossings)
-    if (typeof window.performForensicCrossings === 'function') {
-        await window.performForensicCrossings();
-    } else {
-        // Fallback: calcular crossings localmente
-        const t = sys.analysis.totals;
-        const discrepanciaCritica = t.despesas - t.faturaPlataforma;
-        const discrepanciaSaftVsDac7 = t.saftBruto - t.dac7TotalPeriodo;
-        const percentagemOmissao = t.despesas > 0 ? (discrepanciaCritica / t.despesas) * 100 : 0;
-        const percentagemSaftVsDac7 = t.saftBruto > 0 ? (discrepanciaSaftVsDac7 / t.saftBruto) * 100 : 0;
-        const ivaFalta = discrepanciaCritica * 0.23;
-        const ivaFalta6 = discrepanciaCritica * 0.06;
-        const ircEstimado = discrepanciaCritica * 0.21;
-        const asfixiaFinanceira = t.saftBruto * 0.06;
-
-        if (!sys.analysis.crossings) sys.analysis.crossings = {};
-        Object.assign(sys.analysis.crossings, {
-            discrepanciaSaftVsDac7, percentagemSaftVsDac7,
-            discrepanciaCritica, percentagemOmissao,
-            ivaFalta, ivaFalta6, ircEstimado, asfixiaFinanceira,
-            btor: t.despesas, btf: t.faturaPlataforma,
-            c1_delta: discrepanciaSaftVsDac7, c1_pct: percentagemSaftVsDac7,
-            c2_delta: discrepanciaCritica, c2_pct: percentagemOmissao
-        });
-
-        t.iva6Omitido = ivaFalta6;
-        t.iva23Omitido = ivaFalta;
-        t.asfixiaFinanceira = asfixiaFinanceira;
-    }
-
-    // 3. Atualizar flags de estado
-    window._unifedRawDataOnly = false;
-    window._unifedAnalysisPending = false;
-
-    // 4. Revelar módulos forenses e sincronizar UI (sem desenhar gráficos)
-    if (typeof window.updateForensicModulesVisibility === 'function') {
-        window.updateForensicModulesVisibility(true);
-    }
-    if (typeof window.UNIFED_INTERNAL?.syncMetrics === 'function') {
-        window.UNIFED_INTERNAL.syncMetrics();
-    }
-    if (typeof window.UNIFED_INTERNAL?.renderMatrix === 'function') {
-        window.UNIFED_INTERNAL.renderMatrix();
-    }
-    if (typeof window.UNIFED_INTERNAL?.updateAuxiliaryUI === 'function') {
-        window.UNIFED_INTERNAL.updateAuxiliaryUI();
-    }
-
+  
     // 5. Disparar eventos – os gráficos serão desenhados pelos listeners em enrichment.js
     window.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', {
         detail: { source: 'executePendingAnalysis', timestamp: Date.now() }
@@ -2007,11 +1978,8 @@ console.log('[UNIFED] Análise forense concluída – eventos disparados. Gráfi
     // =========================================================================
     // FUNÇÃO GLOBAL PARA RENDERIZAR GRÁFICOS SOB DEMANDA
     // =========================================================================
-    function renderForensicCharts() {
-        // [VEC-04] Sincronização _fillAnalysisStatCards → renderChart → renderDiscrepancyChart
-        // Full Build consolidado — 2026-04-18
-
-        // Passo 1: Verificar disponibilidade de dados
+   
+	    function renderForensicCharts() {
         var sys = window.UNIFEDSystem;
         if (!sys || !sys.analysis || !sys.analysis.totals) {
             console.warn('[UNIFED] renderForensicCharts: análise não disponível. Aguardando 200ms...');
@@ -2019,15 +1987,19 @@ console.log('[UNIFED] Análise forense concluída – eventos disparados. Gráfi
             return;
         }
 
-        // Passo 2: Hidratar stat-cards ANTES dos gráficos (ValueSource.RAW precede gráficos)
         if (typeof window._fillAnalysisStatCards === 'function') {
             try {
                 window._fillAnalysisStatCards();
-                console.log('[UNIFED] renderForensicCharts: _fillAnalysisStatCards() executado.');
             } catch (err) {
                 console.warn('[UNIFED] _fillAnalysisStatCards() falhou:', err.message);
             }
         }
+
+        // Disparar eventos – os gráficos serão renderizados pelos listeners em enrichment.js
+        window.dispatchEvent(new CustomEvent('UNIFED_ANALYSIS_COMPLETE', { detail: { source: 'renderForensicCharts', timestamp: Date.now() } }));
+        window.dispatchEvent(new CustomEvent('UNIFED_EXECUTE_PERITIA', { detail: { timestamp: new Date().toISOString() } }));
+        console.log('[UNIFED] renderForensicCharts: eventos disparados, aguardando renderização.');
+    }
 
         // Passo 3: Flush DOM via requestAnimationFrame antes de renderizar gráficos
         requestAnimationFrame(function() {
