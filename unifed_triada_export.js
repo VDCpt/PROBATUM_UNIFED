@@ -411,31 +411,31 @@
 // =============================================================================
 
 (function _enhanceTriadaIdempotency() {
+    // Guardar referência à função original já exposta pelo módulo principal
     const _originalInitTriada = window.initTriadaButtons || function() {};
 
     window.initTriadaButtons = function() {
-        // =============================================================
-        // BLOQUEIO DE IDEMPOTÊNCIA REMOVIDO PARA PERMITIR REINICIALIZAÇÃO
-        // =============================================================
-        // if (window._UNIFED_TRIADA_INITIALIZED === true) {
-        //     console.log('[UNIFED-TRIADA] ✓ Tríade já inicializada. Ignorando re-inicialização.');
-        //     return true;
-        // }
+        // Flag de controlo global — impede re-inicialização após primeira execução bem-sucedida
+        if (window._UNIFED_TRIADA_INITIALIZED === true) {
+            console.log('[UNIFED-TRIADA] ✓ Tríade já inicializada. Ignorando re-inicialização.');
+            return true;
+        }
 
+        // Delegar execução à função original
         const result = _originalInitTriada();
 
+        // Marcar como inicializada independentemente do valor de retorno booleano
         if (result === true || result === false) {
             window._UNIFED_TRIADA_INITIALIZED = true;
         }
+
         return result;
     };
 
+    // Sincronizar alias exposto pelo módulo (UNIFEDSystem.triadaUpdateLabels)
     if (window.UNIFEDSystem) {
         window.UNIFEDSystem.triadaUpdateLabels = window.initTriadaButtons;
     }
-
-    console.log('[UNIFED-TRIADA] ✓ Camada de idempotência instalada com BLOQUEIO REMOVIDO (reinicialização permitida).');
-})();
 
     console.log('[UNIFED-TRIADA] ✓ Camada de idempotência instalada.');
 })();
